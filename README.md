@@ -227,7 +227,7 @@ something like
 Flux will have to pull your repository, and even push if you enable autoupdate for e.g. CI/CD      
 
       # Create a Git SSH authentication secret using an ECDSA P-521 curve public key 
-      flux create secret git podinfo-auth \
+      flux create secret git git-credentials \
     --url=ssh://git@github.com/username/repo \
     --ssh-key-algorithm=ecdsa \
     --ssh-ecdsa-curve=p521 --export > git-credentials.yaml
@@ -241,6 +241,9 @@ Flux will have to pull your repository, and even push if you enable autoupdate f
       # Encrypt the secret on disk with Mozilla SOP
       sops --encrypt --encrypted-regex '^(data|stringData)$' \
                  --in-place ./cluster/base/git-credentials.yaml 
+
+      # Apply credentials 
+      sops --decrypt ./cluster/base/git-credentials.yaml |kubectl --kubeconfig=./provision/kubeconfig apply -f -
 
 
 ### 🔹 GitOps with Flux
