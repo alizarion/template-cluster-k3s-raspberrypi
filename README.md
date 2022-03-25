@@ -222,6 +222,27 @@ something like
             
       *.home IN A YOUR_PUBLIC_IP
 
+### Create git credential for your repository
+
+Flux will have to pull your repository, and even push if you enable autoupdate for e.g. CI/CD      
+
+      # Create a Git SSH authentication secret using an ECDSA P-521 curve public key 
+      flux create secret git podinfo-auth \
+    --url=ssh://git@github.com/username/repo \
+    --ssh-key-algorithm=ecdsa \
+    --ssh-ecdsa-curve=p521 --export > git-credentials.yaml
+
+      # move file to cluster folder 
+      mv git-credentials.yaml ./cluster/base/
+
+      # Copy public key (identity.pub) from Secret file and add it as deploy key on your git repository
+      cat ./cluster/base/git-credentials.yaml
+
+      # Encrypt the secret on disk with Mozilla SOP
+      sops --encrypt --encrypted-regex '^(data|stringData)$' \
+                 --in-place ./cluster/base/git-credentials.yaml 
+
+
 ### 🔹 GitOps with Flux
 
 📍 Here we will be installing [flux](https://toolkit.fluxcd.io/) after some quick bootstrap steps.
