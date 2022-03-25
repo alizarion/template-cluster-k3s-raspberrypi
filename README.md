@@ -1,8 +1,13 @@
-# Template for deploying k3s backed by Flux
+~~# Template for deploying k3s backed by Flux
 
-Highly opinionated template for deploying a single [k3s](https://k3s.io) cluster with [Ansible](https://www.ansible.com) and [Terraform](https://www.terraform.io) backed by [Flux](https://toolkit.fluxcd.io/) and [SOPS](https://toolkit.fluxcd.io/guides/mozilla-sops/).
+Highly opinionated template for deploying a single [k3s](https://k3s.io) cluster with [Ansible](https://www.ansible.com) backed by [Flux](https://toolkit.fluxcd.io/) and [SOPS](https://toolkit.fluxcd.io/guides/mozilla-sops/).
 
-The purpose here is to showcase how you can deploy an entire Kubernetes cluster and show it off to the world using the [GitOps](https://www.weave.works/blog/what-is-gitops-really) tool [Flux](https://toolkit.fluxcd.io/). When completed, your Git repository will be driving the state of your Kubernetes cluster. In addition with the help of the [Ansible](https://github.com/ansible-collections/community.sops), [Terraform](https://github.com/carlpett/terraform-provider-sops) and [Flux](https://toolkit.fluxcd.io/guides/mozilla-sops/) SOPS integrations you'll be able to commit Age encrypted secrets to your public repo.
+The purpose here is to showcase how you can deploy an entire Kubernetes cluster and show it off to the world using the [GitOps](https://www.weave.works/blog/what-is-gitops-really) tool [Flux](https://toolkit.fluxcd.io/). When completed, your Git repository will be driving the state of your Kubernetes cluster. In addition with the help of the [Ansible](https://github.com/ansible-collections/community.sops) and [Flux](https://toolkit.fluxcd.io/guides/mozilla-sops/) SOPS integrations you'll be able to commit Age encrypted secrets to your public repo.
+
+the main difference with the original repository is the choice of not using cloudflare, which assumes you have a domain name configured with all subdomains redirected to your public IP address
+e.g *.k8s-at-home.com.    
+
+#### Tested on Raspberry PI (ARM arch) with Raspbian OS and Ubuntu on (x64) server.
 
 ## Overview
 
@@ -34,16 +39,14 @@ Feel free to read up on any of these technologies before you get started to be m
 
 For provisioning the following tools will be used:
 
-- [Ubuntu](https://ubuntu.com/download/server) - this is a pretty universal operating system that supports running all kinds of home related workloads in Kubernetes
+- [Ubuntu](https://ubuntu.com/download/server) OR Raspbian(on raspberry)- this is a pretty universal operating system that supports running all kinds of home related workloads in Kubernetes
 - [Ansible](https://www.ansible.com) - this will be used to provision the Ubuntu operating system to be ready for Kubernetes and also to install k3s
-- [Terraform](https://www.terraform.io) - in order to help with the DNS settings this will be used to provision an already existing Cloudflare domain and DNS settings
 
 ## 📝 Prerequisites
 
 ### 💻 Systems
 
-- One or more nodes with a fresh install of [Ubuntu Server 20.04](https://ubuntu.com/download/server). These nodes can be bare metal or VMs.
-- A [Cloudflare](https://www.cloudflare.com/) account with a domain, this will be managed by Terraform.
+- One or more nodes with a fresh install of [Ubuntu Server 20.04](https://ubuntu.com/download/server) OR Raspbian(on raspberry). These nodes can be bare metal or VMs.
 - Some experience in debugging problems and a positive attitude ;)
 
 ### 🔧 Tools
@@ -63,7 +66,6 @@ For provisioning the following tools will be used:
 | [jq](https://stedolan.github.io/jq/)               | Used to verify settings in the configure script                                                                                         |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | Allows you to run commands against Kubernetes clusters                                                                                  |
 | [sops](https://github.com/mozilla/sops)            | Encrypts k8s secrets with Age                                                                                                           |
-| [terraform](https://www.terraform.io)              | Prepare a Cloudflare domain to be used with the cluster                                                                                 |
 
 #### Optional
 
@@ -158,18 +160,6 @@ source ~/.bashrc
 
 4. Fill out the Age public key in the `.config.env` under `BOOTSTRAP_AGE_PUBLIC_KEY`, **note** the public key should start with `age`...
 
-### ☁️ Global Cloudflare API Key
-
-In order to use Terraform and `cert-manager` with the Cloudflare DNS challenge you will need to create a API key.
-
-1. Head over to Cloudflare and create a API key by going [here](https://dash.cloudflare.com/profile/api-tokens).
-
-2. Under the `API Keys` section, create a global API Key.
-
-3. Use the API Key in the configuration section below.
-
-📍 You may wish to update this later on to a Cloudflare **API Token** which can be scoped to certain resources. I do not recommend using a Cloudflare **API Key**, but for the purposes of this template it is easier getting started without having to define which scopes and resources are needed. For more information see the [Cloudflare docs on API Keys and Tokens](https://developers.cloudflare.com/api/).
-
 ### 📄 Configuration
 
 📍 The `.config.env` file contains necessary configuration that is needed by Ansible, Terraform and Flux.
@@ -206,6 +196,8 @@ In order to use Terraform and `cert-manager` with the Cloudflare DNS challenge y
 
 📍 Once more over, it is suggested to use **three control plane nodes**. If you **only need a single control plane node**, make sure **you update** `./provision/ansible/inventory/group_vars/kubernetes/k3s.yml` and set `k3s_use_unsupported_config` to `true`
 
+0. ####Enabling cgroups for Raspbian Buster
+   Standard Raspbian Buster installations do not start with cgroups enabled. K3S needs cgroups to start the systemd service. cgroupscan be enabled by appending cgroup_memory=1 cgroup_enable=memory to /boot/cmdline.txt.
 1. Verify Ansible can view your config by running `task ansible:list`
 
 2. Verify Ansible can ping your nodes by running `task ansible:adhoc:ping`
@@ -223,17 +215,12 @@ kubectl --kubeconfig=./provision/kubeconfig get nodes
 # k8s-1          Ready    worker                    4d20h   v1.21.5+k3s1
 ```
 
-### ☁️ Configuring Cloudflare DNS with Terraform
+### Configuring your DNS
 
-📍 Review the Terraform scripts under `./provision/terraform/cloudflare/` and make sure you understand what it's doing (no really review it). If your domain already has existing DNS records be sure to export those DNS settings before you continue. Ideally you can update the terraform script to manage DNS for all records if you so choose to.
-
-1. Pull in the Terraform deps by running `task terraform:init:cloudflare`
-
-2. Review the changes Terraform will make to your Cloudflare domain by running `task terraform:plan:cloudflare`
-
-3. Finally have Terraform execute the task by running `task terraform:apply:cloudflare`
-
-If Terraform was ran successfully you can log into Cloudflare and validate the DNS records are present.
+trigger all subdomains to your public IP    
+something like    
+            
+      *.home IN A YOUR_PUBLIC_IP
 
 ### 🔹 GitOps with Flux
 
